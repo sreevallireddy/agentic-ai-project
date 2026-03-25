@@ -6,3 +6,8 @@ langchain-huggingface
 langgraph
 streamlit
 accelerate
+fastapi
+uvicorn
+pydantic
+faiss-cpu
+numpy

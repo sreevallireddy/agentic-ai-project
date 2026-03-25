@@ -1,42 +1,34 @@
 """
-Streamlit app for the Agentic AI Security System.
-Provides a ChatGPT-like web interface for secure AI interactions.
+Streamlit web interface for the Agentic AI Security System.
+Provides a ChatGPT-like web interface for secure AI interactions with LangGraph workflow.
 """
 
 import streamlit as st
-from workflow import get_workflow
+from workflow import process_input
+import time
+
 
 # Configure page
 st.set_page_config(
     page_title="Agentic AI Security System",
     page_icon="🤖",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Custom CSS for better styling
 st.markdown("""
 <style>
     .main {
-        padding: 0;
+        padding: 1rem;
     }
     .stChatMessage {
         padding: 1rem 0;
     }
     .chatbot-container {
-        max-width: 900px;
+        max-width: 1000px;
         margin: 0 auto;
-        padding: 2rem 1rem;
-    }
-    .input-container {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: linear-gradient(to top, rgba(255,255,255,1), rgba(255,255,255,0.95));
         padding: 1rem 0;
-        border-top: 1px solid #e5e5e5;
-        z-index: 100;
     }
     .chat-bubble {
         border-radius: 12px;
@@ -48,20 +40,14 @@ st.markdown("""
         color: white;
         margin-left: auto;
         max-width: 80%;
+        text-align: left;
     }
     .assistant-bubble {
         background: #f7f7f7;
         color: black;
         margin-right: auto;
-        max-width: 80%;
+        max-width: 100%;
         border: 1px solid #e5e5e5;
-    }
-    .security-warning {
-        background: #fff4e6;
-        border-left: 4px solid #ff9800;
-        padding: 12px;
-        border-radius: 4px;
-        margin: 8px 0;
     }
     .security-safe {
         background: #f1f8e9;
@@ -70,100 +56,156 @@ st.markdown("""
         border-radius: 4px;
         margin: 8px 0;
     }
+    .security-warning {
+        background: #fff3e0;
+        border-left: 4px solid #ff9800;
+        padding: 12px;
+        border-radius: 4px;
+        margin: 8px 0;
+    }
+    .security-blocked {
+        background: #ffebee;
+        border-left: 4px solid #f44336;
+        padding: 12px;
+        border-radius: 4px;
+        margin: 8px 0;
+    }
+    .workflow-info {
+        background: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 10px;
+        border-radius: 4px;
+        font-size: 0.85em;
+        margin: 8px 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # Initialize session state for chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "processed_input" not in st.session_state:
-    st.session_state.processed_input = None
+
+if "show_workflow" not in st.session_state:
+    st.session_state.show_workflow = False
+
+
+def display_workflow_steps():
+    """Display the agentic workflow steps."""
+    st.markdown("""
+    <div class="workflow-info">
+    <strong>🔄 Agentic Workflow Enabled:</strong><br/>
+    1. Input → 2. Analyze → 3. Security Check → 4. Validate → 5. RAG Retrieval → 6. Tool Execution → 7. Response
+    </div>
+    """, unsafe_allow_html=True)
+
 
 def main():
     # Header
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("<h1 style='text-align: center; color: #10a37f;'>🤖 Agentic Security AI</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #666;'>A ChatGPT-like AI with advanced security threat detection</p>", unsafe_allow_html=True)
+        st.markdown(
+            "<h1 style='text-align: center; color: #10a37f;'>🤖 Agentic AI Security System</h1>",
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            "<p style='text-align: center; color: #666; font-size: 0.9em;'>Advanced AI with Multi-Step Security Analysis, RAG, and Tool Integration</p>",
+            unsafe_allow_html=True
+        )
 
-    # Display chat history with better styling
-    st.markdown("<div class='chatbot-container'>", unsafe_allow_html=True)
-    
-    for message in st.session_state.messages:
-        if message["role"] == "user":
-            col1, col2 = st.columns([1, 4])
-            with col2:
-                st.markdown(f"<div style='background: #10a37f; color: white; border-radius: 12px; padding: 12px 16px; margin: 8px 0;'><strong>You:</strong> {message['content']}</div>", unsafe_allow_html=True)
-        else:
-            col1, col2 = st.columns([4, 1])
-            with col1:
-                st.markdown(f"<div style='background: #f7f7f7; color: black; border-radius: 12px; padding: 12px 16px; margin: 8px 0; border: 1px solid #e5e5e5;'><strong>🤖 Assistant:</strong><br/>{message['content']}</div>", unsafe_allow_html=True)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Display workflow info if enabled
+    if st.session_state.show_workflow:
+        display_workflow_steps()
 
-    # Add spacing for fixed input
-    st.markdown("<br>" * 4, unsafe_allow_html=True)
+    # Chat display area
+    with st.container():
+        for message in st.session_state.messages:
+            if message["role"] == "user":
+                with st.chat_message("user"):
+                    st.markdown(message["content"])
+            else:
+                with st.chat_message("assistant"):
+                    st.markdown(message["content"])
 
-    # Chat input at the bottom
-    with st.markdown("<div class='input-container'>", unsafe_allow_html=True):
-        col1, col2, col3 = st.columns([0.5, 8, 0.5])
+    # Chat input
+    if prompt := st.chat_input("Ask me anything... (with security analysis)"):
+        # Add user message
+        st.session_state.messages.append({"role": "user", "content": prompt})
         
-        with col2:
-            with st.form(key="chat_form", clear_on_submit=True):
-                prompt = st.text_input(
-                    "💬",
-                    placeholder="Ask me anything... (I'll also check for security threats)",
-                    label_visibility="collapsed"
-                )
-                submitted = st.form_submit_button("Send", use_container_width=False)
-        
-        if submitted and prompt:
-            # Add user message
-            st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # Process through workflow
+        with st.chat_message("assistant"):
+            message_placeholder = st.empty()
             
-            # Show processing spinner
-            with st.spinner("🔍 Analyzing and generating response..."):
+            # Show processing steps
+            with st.spinner("🔍 Processing through agentic workflow..."):
                 try:
-                    workflow = get_workflow()
-                    initial_state = {
-                        "user_input": prompt,
-                        "is_safe": False,
-                        "classification": "",
-                        "response": ""
-                    }
-                    final_state = workflow.invoke(initial_state)
-                    response = final_state["response"]
+                    # Add small progress indicators
+                    status_text = "🔄 Analyzing input..."
+                    message_placeholder.markdown(status_text)
+                    
+                    # Process through LangGraph workflow
+                    response = process_input(prompt)
+                    
+                    # Display response
+                    message_placeholder.markdown(response)
+                    
                 except Exception as e:
-                    response = f"❌ Error: {str(e)}"
-            
-            # Add assistant response
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            
-            # Rerun to display the response
-            st.rerun()
+                    error_msg = f"❌ **Error**: {str(e)}"
+                    message_placeholder.markdown(error_msg)
 
-    # Sidebar with information
+        # Add assistant response to history
+        st.session_state.messages.append({"role": "assistant", "content": response})
+
+    # Sidebar information
     with st.sidebar:
-        st.header("ℹ️ About")
+        st.header("ℹ️ System Information")
+        
+        # Toggle workflow display
+        st.session_state.show_workflow = st.checkbox(
+            "Show workflow steps",
+            value=st.session_state.show_workflow
+        )
+        
+        st.divider()
+        
+        st.subheader("🔒 Security Detection")
         st.markdown("""
-        ### Security Features
-        This AI system detects and alerts on:
-        - 🚨 **Prompt Injection** - Direct attempts to override instructions
-        - 🔗 **Indirect Prompt Injection** - Subtle manipulation attempts
-        - 💾 **Data Poisoning** - Attempts to corrupt data
-        - 📄 **Data Leakage** - Attempts to extract sensitive information
+        This system detects:
+        - **Prompt Injection** - Direct override attempts
+        - **Indirect Injection** - Subtle manipulation
+        - **Data Leakage** - Info extraction attempts
+        - **Data Poisoning** - Corruption attempts
+        """)
 
-        ### How It Works
-        1. You ask any question naturally
-        2. The LLM analyzes for security threats
-        3. Shows security status with the response
-        4. Answers your question if safe
+        st.divider()
+        
+        st.subheader("🛠️ Integrated Tools")
+        st.markdown("""
+        - **🔍 Search Tool** - Find information
+        - **🧮 Calculator** - Math operations
+        - **📄 File Reader** - Read local files
+        """)
 
-        ### Technology
-        - **LLM**: Hugging Face (google/flan-t5-base)
-        - **Framework**: LangChain + LangGraph
-        - **Interface**: Streamlit
-        - **Security**: LLM-based threat detection
+        st.divider()
+        
+        st.subheader("📊 RAG System")
+        st.markdown("""
+        Retrieval-Augmented Generation:
+        - Loads documents from `/docs`
+        - Retrieves relevant context
+        - Enhances response accuracy
+        """)
+
+        st.divider()
+        
+        st.subheader("💾 Conversation Memory")
+        st.markdown(f"""
+        Current messages: **{len(st.session_state.messages)}**
+        
+        Memory keeps last 5 interactions
+        for context in multi-turn conversations.
         """)
 
         st.divider()
@@ -172,12 +214,33 @@ def main():
         with col1:
             if st.button("🗑️ Clear Chat", use_container_width=True):
                 st.session_state.messages = []
-                st.session_state.processed_input = None
                 st.rerun()
         
         with col2:
-            if st.button("ℹ️ Help", use_container_width=True):
-                st.info("Type your question and click Send. The AI will check for security threats and respond!")
+            if st.button("🔄 Refresh", use_container_width=True):
+                st.rerun()
+
+        st.divider()
+        
+        st.markdown("""
+        ### Technology Stack
+        - **LLM**: Hugging Face (FLAN-T5)
+        - **Framework**: LangChain + LangGraph
+        - **RAG**: FAISS Vector Store
+        - **Interface**: Streamlit
+        - **API**: FastAPI (api.py)
+        
+        ### Project Structure
+        - `workflow.py` - LangGraph workflow
+        - `app.py` - Streamlit UI
+        - `api.py` - FastAPI server
+        - `llm/` - LLM integration
+        - `security/` - Security detection
+        - `rag/` - RAG pipeline
+        - `tools/` - Tool implementations
+        - `memory/` - Conversation memory
+        """)
+
 
 if __name__ == "__main__":
     main()

@@ -4,7 +4,7 @@ Handles classification of user inputs for security threats using LangChain.
 """
 
 from llm.model import LLMModel
-from utils.prompts import get_security_classification_prompt
+from utils.prompts import get_agentic_security_prompt
 
 class SecurityDetector:
     def __init__(self, llm_model: LLMModel):
@@ -26,13 +26,13 @@ class SecurityDetector:
         Returns:
             bool: True if safe, False if contains security threats.
         """
-        prompt = get_security_classification_prompt(user_input)
+        prompt = get_agentic_security_prompt(user_input)
         classification = self.llm_model.classify_input(prompt)
 
-        # Parse the response: "safe" or "unsafe: category"
+        # Parse the response: "safe", "unsafe: category", or "unclear"
         classification = classification.strip().lower()
 
-        if classification == "safe" or classification.startswith("safe"):
+        if classification == "safe":
             return True
 
         if classification.startswith("unsafe:"):
@@ -46,7 +46,7 @@ class SecurityDetector:
             ]:
                 return False
 
-        # If classification is unclear or unknown, treat as safe
+        # If unclear or unknown, treat as safe for now
         return True
 
     def get_classification(self, user_input: str) -> str:
@@ -57,9 +57,9 @@ class SecurityDetector:
             user_input (str): The user's input text.
 
         Returns:
-            str: The classification response (safe or unsafe: category).
+            str: The classification response (safe, unsafe: category, or unclear).
         """
-        prompt = get_security_classification_prompt(user_input)
+        prompt = get_agentic_security_prompt(user_input)
         classification = self.llm_model.classify_input(prompt).strip().lower()
 
         # Known categories
@@ -72,6 +72,9 @@ class SecurityDetector:
 
         if classification == "safe":
             return "safe"
+
+        if classification == "unclear":
+            return "unclear"
 
         if classification.startswith("unsafe:"):
             unsafe_category = classification.split(":", 1)[1].strip()
